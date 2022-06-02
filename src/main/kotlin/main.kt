@@ -31,7 +31,11 @@ fun main() {
 }
 
 suspend fun startBot() {
+  log.info { "Starting bot..." }
+
   val token = getenv("DISCORD_TOKEN") ?: error("Can not find Bot token.")
   val kord = Kord(token) {
   }
+
+  kord.login()
 }

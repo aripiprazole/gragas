@@ -27,3 +27,9 @@ dependencies {
 application {
   mainClass.set("gragas.Main")
 }
+
+tasks {
+  compileKotlin {
+    kotlinOptions.freeCompilerArgs += "-opt-in=kotlin.RequiresOptIn"
+  }
+}

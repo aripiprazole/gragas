@@ -17,4 +17,6 @@
   <root level="TRACE">
     <appender-ref ref="STDOUT"/>
   </root>
+
+  <logger name="dev.kord" level="ERROR"/>
 </configuration>
