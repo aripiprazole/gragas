@@ -7,10 +7,14 @@
 
 package gragas.play
 
+import com.sedmelluq.discord.lavaplayer.player.AudioLoadResultHandler
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayer
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayerManager
 import com.sedmelluq.discord.lavaplayer.player.DefaultAudioPlayerManager
 import com.sedmelluq.discord.lavaplayer.source.AudioSourceManagers
+import com.sedmelluq.discord.lavaplayer.tools.FriendlyException
+import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist
+import com.sedmelluq.discord.lavaplayer.track.AudioTrack
 import com.sedmelluq.discord.lavaplayer.track.playback.NonAllocatingAudioFrameBuffer
 import dev.kord.common.annotation.KordVoice
 import dev.kord.core.Kord
@@ -21,6 +25,7 @@ import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEve
 import dev.kord.rest.builder.interaction.string
 import gragas.commands.Command
 import gragas.commands.CommandScope
+import kotlinx.coroutines.launch
 
 class PlayCommand(val kord: Kord) : Command(
   name = "play",
@@ -32,9 +37,6 @@ class PlayCommand(val kord: Kord) : Command(
     }
     .also { AudioSourceManagers.registerRemoteSources(it) }
 
-  val player: AudioPlayer = playerManager.createPlayer()
-  val scheduler = TrackScheduler(player)
-
   init {
     settings {
       string("url", "The song URL") {
@@ -43,6 +45,7 @@ class PlayCommand(val kord: Kord) : Command(
     }
   }
 
+  @Suppress("ControlFlowWithEmptyBody")
   override suspend fun CommandScope.execute(event: GuildChatInputCommandInteractionCreateEvent) {
     val interaction = event.interaction
     val command = interaction.command
@@ -60,14 +63,42 @@ class PlayCommand(val kord: Kord) : Command(
 
     val url = command.strings["url"] ?: error("unreachable")
 
-    playerManager.loadItem(url, scheduler)
+    val player: AudioPlayer = playerManager.createPlayer()
 
-    channel.connect {
+    val connection = channel.connect {
       audioProvider(LavaAudioProvider(player))
     }
 
     interaction.deferPublicResponse().respond {
       content = "You have played the song <$url> in ${channel.data.name.value}"
     }
+
+    playerManager.loadItem(
+      url,
+      object : AudioLoadResultHandler {
+        override fun trackLoaded(track: AudioTrack) {
+          player.playTrack(track)
+
+          kord.launch {
+            while (track.position < track.duration) {
+              println("${track.position} < ${track.duration}")
+            }
+
+            connection.shutdown()
+            println("stoped")
+          }
+        }
+
+        override fun playlistLoaded(playlist: AudioPlaylist) {
+        }
+
+        override fun loadFailed(exception: FriendlyException) {
+          fail(exception.message ?: "Failed to run song")
+        }
+
+        override fun noMatches() {
+        }
+      },
+    )
   }
 }

@@ -22,9 +22,8 @@ dependencies {
       requireCapability("dev.kord:core-voice:0.8.0-M14")
     }
   }
-
+  implementation("org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:1.6.2")
   implementation("com.sedmelluq:lavaplayer:1.3.77")
-
   implementation("io.github.microutils:kotlin-logging-jvm:2.0.11")
 
   runtimeOnly("ch.qos.logback:logback-classic:1.2.11")
