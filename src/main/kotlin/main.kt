@@ -4,12 +4,16 @@
  */
 
 @file:JvmName("Main")
+@file:OptIn(KordVoice::class)
 
 package gragas
 
+import dev.kord.common.annotation.KordVoice
 import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
+import dev.kord.core.behavior.channel.connect
 import dev.kord.core.behavior.interaction.response.respond
+import dev.kord.core.entity.channel.VoiceChannel
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
 import dev.kord.rest.builder.interaction.string
 import java.lang.System.getenv
@@ -39,7 +43,7 @@ fun main() {
 }
 
 suspend fun startBot() {
-  log.info { "Starting bot..." }
+  log.info { "Running bot..." }
 
   val token = getenv("DISCORD_TOKEN") ?: error("Can not find Bot token.")
 
@@ -49,18 +53,50 @@ suspend fun startBot() {
 }
 
 suspend fun Kord.playCommand() {
+  suspend fun GuildChatInputCommandInteractionCreateEvent.onExecution() {
+    val command = interaction.command
+
+    val channel = run {
+      val state = interaction.user
+        .asMember()
+        .getVoiceStateOrNull()
+        ?: return interaction
+          .deferPublicResponse()
+          .respond {
+            content = "You must be in a voice channel to play a song!"
+          }
+          .unit()
+
+      val channelId = state.channelId ?: return interaction
+        .deferPublicResponse()
+        .respond {
+          content = "Can not find channel with id null"
+        }
+        .unit()
+
+      getChannel(channelId) as? VoiceChannel ?: return interaction
+        .deferPublicResponse()
+        .respond {
+          content = "Can not find channel with id $channelId"
+        }
+        .unit()
+    }
+
+    channel.connect {
+      audioProvider { null }
+    }
+
+    val url = command.strings["url"] ?: error("unreachable")
+
+    interaction.deferPublicResponse().respond {
+      content = "You have played the song <$url> in ${channel.data.name.value}"
+    }
+  }
+
   events
     .filterIsInstance<GuildChatInputCommandInteractionCreateEvent>()
     .filter { it.interaction.command.rootName == "play" }
-    .map { event ->
-      val command = event.interaction.command
-
-      val url = command.strings["url"] ?: error("unreachable")
-
-      event.interaction.deferPublicResponse().respond {
-        content = "You have played the song $url"
-      }
-    }
+    .map { it.onExecution() }
     .launchIn(this)
 
   createGuildChatInputCommand(
@@ -73,3 +109,5 @@ suspend fun Kord.playCommand() {
     }
   }
 }
+
+fun Any?.unit(): Unit = Unit
