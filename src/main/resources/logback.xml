@@ -19,5 +19,6 @@
   </root>
 
   <logger name="dev.kord" level="ERROR"/>
+  <logger name="com.sedmelluq.discord.lavaplayer" level="ERROR"/>
   <logger name="[R]:[KTOR]:[ExclusionRequestRateLimiter]" level="ERROR"/>
 </configuration>

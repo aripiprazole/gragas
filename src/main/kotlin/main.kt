@@ -8,6 +8,15 @@
 
 package gragas
 
+import com.sedmelluq.discord.lavaplayer.player.AudioLoadResultHandler
+import com.sedmelluq.discord.lavaplayer.player.AudioPlayer
+import com.sedmelluq.discord.lavaplayer.player.AudioPlayerManager
+import com.sedmelluq.discord.lavaplayer.player.DefaultAudioPlayerManager
+import com.sedmelluq.discord.lavaplayer.source.AudioSourceManagers
+import com.sedmelluq.discord.lavaplayer.tools.FriendlyException
+import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist
+import com.sedmelluq.discord.lavaplayer.track.AudioTrack
+import com.sedmelluq.discord.lavaplayer.track.playback.NonAllocatingAudioFrameBuffer
 import dev.kord.common.annotation.KordVoice
 import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
@@ -16,6 +25,8 @@ import dev.kord.core.behavior.interaction.response.respond
 import dev.kord.core.entity.channel.VoiceChannel
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
 import dev.kord.rest.builder.interaction.string
+import dev.kord.voice.AudioFrame
+import dev.kord.voice.AudioProvider
 import java.lang.System.getenv
 import java.lang.System.setProperty
 import java.util.concurrent.Executors
@@ -52,7 +63,42 @@ suspend fun startBot() {
   kord.login()
 }
 
+class LavaPlayerAudioProvider(val player: AudioPlayer) : AudioProvider {
+  override suspend fun provide(): AudioFrame? {
+    val frame = player.provide() ?: return null
+
+    return AudioFrame(frame.data)
+  }
+}
+
+class LavaAudioLoadResultHandler(val player: AudioPlayer) : AudioLoadResultHandler {
+  override fun trackLoaded(track: AudioTrack) {
+    player.playTrack(track)
+  }
+
+  override fun playlistLoaded(playlist: AudioPlaylist?) {
+    println("playlistLoaded(): Not yet implemented")
+  }
+
+  override fun noMatches() {
+    println("noMatched(): Not yet implemented")
+  }
+
+  override fun loadFailed(exception: FriendlyException?) {
+    println("loadFailed(): Not yet implemented")
+  }
+}
+
 suspend fun Kord.playCommand() {
+  val playerManager: AudioPlayerManager = DefaultAudioPlayerManager()
+    .apply {
+      configuration.setFrameBufferFactory(::NonAllocatingAudioFrameBuffer)
+    }
+    .also { AudioSourceManagers.registerRemoteSources(it) }
+
+  val player: AudioPlayer = playerManager.createPlayer()
+  val scheduler = LavaAudioLoadResultHandler(player)
+
   suspend fun GuildChatInputCommandInteractionCreateEvent.onExecution() {
     val command = interaction.command
 
@@ -82,11 +128,13 @@ suspend fun Kord.playCommand() {
         .unit()
     }
 
-    channel.connect {
-      audioProvider { null }
-    }
-
     val url = command.strings["url"] ?: error("unreachable")
+
+    playerManager.loadItem(url, scheduler)
+
+    channel.connect {
+      audioProvider(LavaPlayerAudioProvider(player))
+    }
 
     interaction.deferPublicResponse().respond {
       content = "You have played the song <$url> in ${channel.data.name.value}"

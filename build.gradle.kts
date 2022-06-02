@@ -13,6 +13,7 @@ version = "1.0"
 
 repositories {
   mavenCentral()
+  maven("https://m2.dv8tion.net/releases")
 }
 
 dependencies {
@@ -21,6 +22,8 @@ dependencies {
       requireCapability("dev.kord:core-voice:0.8.0-M14")
     }
   }
+
+  implementation("com.sedmelluq:lavaplayer:1.3.77")
 
   implementation("io.github.microutils:kotlin-logging-jvm:2.0.11")
 
