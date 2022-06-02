@@ -3,10 +3,8 @@
  * public domain. For more information, please refer to <http://unlicense.org/>
  */
 
-import org.gradle.api.tasks.testing.logging.TestExceptionFormat
-
 plugins {
-  kotlin("multiplatform") version "1.7.0-RC"
+  kotlin("jvm") version "1.6.21"
   application
 }
 
@@ -17,26 +15,13 @@ repositories {
   mavenCentral()
 }
 
-kotlin {
-  jvm {
-    withJava()
-    compilations.all {
-      kotlinOptions.jvmTarget = "16"
-    }
-    testRuns["test"].executionTask.configure {
-      useJUnitPlatform()
-      testLogging.showStandardStreams = true
-      testLogging.exceptionFormat = TestExceptionFormat.FULL
-    }
-  }
-  sourceSets {
-    val jvmMain by getting {
-      dependencies {
-        implementation("dev.kord:kord-core:0.8.0-M14")
-      }
-    }
-    val jvmTest by getting
-  }
+dependencies {
+  implementation("dev.kord:kord-core:0.8.0-M14")
+
+  implementation("io.github.microutils:kotlin-logging-jvm:2.0.11")
+
+  runtimeOnly("ch.qos.logback:logback-classic:1.2.11")
+  runtimeOnly("org.fusesource.jansi:jansi:2.4.0")
 }
 
 application {

@@ -4,3 +4,5 @@
  */
 
 rootProject.name = "gragas"
+
+enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
