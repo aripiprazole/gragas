@@ -15,6 +15,7 @@ import com.sedmelluq.discord.lavaplayer.source.AudioSourceManagers
 import com.sedmelluq.discord.lavaplayer.tools.FriendlyException
 import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack
+import com.sedmelluq.discord.lavaplayer.track.AudioTrackState
 import com.sedmelluq.discord.lavaplayer.track.playback.NonAllocatingAudioFrameBuffer
 import dev.kord.common.annotation.KordVoice
 import dev.kord.core.Kord
@@ -80,12 +81,10 @@ class PlayCommand(val kord: Kord) : Command(
           player.playTrack(track)
 
           kord.launch {
-            while (track.position < track.duration) {
-              println("${track.position} < ${track.duration}")
-            }
+            waitUntil { track.state == AudioTrackState.FINISHED }
 
+            connection.leave()
             connection.shutdown()
-            println("stoped")
           }
         }
 
