@@ -10,6 +10,9 @@ package gragas
 import dev.kord.core.Kord
 import gragas.commands.register
 import gragas.play.PlayCommand
+import gragas.play.QuitCommand
+import gragas.play.TrackCommand
+import gragas.play.TrackService
 import java.lang.System.getenv
 import java.lang.System.setProperty
 import java.util.concurrent.Executors
@@ -36,8 +39,12 @@ suspend fun startBot() {
   log.info { "Running bot..." }
 
   val token = getenv("DISCORD_TOKEN") ?: error("Can not find Bot token.")
-
   val kord = Kord(token)
-  kord.register(PlayCommand(kord))
+
+  val trackService = TrackService(kord)
+
+  kord.register(PlayCommand(trackService))
+  kord.register(TrackCommand(trackService))
+  kord.register(QuitCommand(trackService))
   kord.login()
 }

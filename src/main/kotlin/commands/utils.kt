@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.map
 suspend fun Kord.register(command: Command) {
   events
     .filterIsInstance<GuildChatInputCommandInteractionCreateEvent>()
-    .filter { it.interaction.command.rootName == "play" }
+    .filter { it.interaction.command.rootName == command.name }
     .map {
       try {
         with(command) {

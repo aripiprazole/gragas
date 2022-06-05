@@ -7,4 +7,7 @@ package gragas.commands
 
 import dev.kord.rest.builder.message.modify.InteractionResponseModifyBuilder
 
-class CommandFailure(val builder: InteractionResponseModifyBuilder.() -> Unit) : RuntimeException()
+class CommandFailure(val builder: InteractionResponseModifyBuilder.() -> Unit) :
+  RuntimeException() {
+  constructor(message: String) : this({ content = message })
+}

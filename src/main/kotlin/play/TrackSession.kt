@@ -21,8 +21,6 @@ import dev.kord.core.behavior.channel.connect
 import dev.kord.core.entity.channel.VoiceChannel
 import dev.kord.voice.VoiceConnection
 import kotlin.Result.Companion.failure
-import kotlin.coroutines.CoroutineContext
-import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import kotlin.time.Duration.Companion.seconds
@@ -33,8 +31,8 @@ import kotlinx.coroutines.ObsoleteCoroutinesApi
 import kotlinx.coroutines.channels.BroadcastChannel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.onFailure
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
@@ -43,12 +41,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import mu.KLogging
 
-class TrackSession(
-  val channel: VoiceChannel,
-  val context: CoroutineContext = EmptyCoroutineContext,
-) :
-  CoroutineScope by
-  CoroutineScope(context + CoroutineName("session-${channel.name}")) {
+class TrackSession(val channel: VoiceChannel, val scope: CoroutineScope) {
   companion object : KLogging() {
     val playerManager: AudioPlayerManager = DefaultAudioPlayerManager()
       .apply {
@@ -57,19 +50,12 @@ class TrackSession(
       .also { AudioSourceManagers.registerRemoteSources(it) }
   }
 
-  val player: AudioPlayer = playerManager.createPlayer()
-  val queue: BroadcastChannel<AudioTrack> = BroadcastChannel(Channel.CONFLATED)
+  private val player: AudioPlayer = playerManager.createPlayer()
+  private var queue: BroadcastChannel<AudioTrack> = BroadcastChannel(Channel.CONFLATED)
 
-  var connection: VoiceConnection? = null
+  private var connection: VoiceConnection? = null
 
-  fun initialize() {
-    if (connection != null) return
-
-    launch(CoroutineName("session-${channel.name}/play-tracks")) {
-      setupSession()
-      playRegisteredTracks()
-    }
-  }
+  val queueFlow: Flow<AudioTrack> get() = queue.openSubscription().receiveAsFlow()
 
   suspend fun play(song: String): Unit = suspendCoroutine { cont ->
     initialize()
@@ -102,6 +88,24 @@ class TrackSession(
     )
   }
 
+  suspend fun close() {
+    if (connection == null) return
+
+    connection?.shutdown()
+    connection = null
+    queue.cancel()
+    queue = BroadcastChannel(Channel.CONFLATED)
+  }
+
+  private fun initialize() {
+    if (connection != null) return
+
+    scope.launch(CoroutineName("session-${channel.name}/play-tracks")) {
+      setupSession()
+      playRegisteredTracks()
+    }
+  }
+
   private suspend fun setupSession() {
     logger.info("setting up session")
 
@@ -113,42 +117,21 @@ class TrackSession(
 
     val time = atomic(0)
 
-    queue
-      .openSubscription()
-      .receiveAsFlow()
-      .map {
-        time.value = 0
-      }
-      .launchIn(this)
+    queueFlow.map { time.value = 0 }.launchIn(scope)
 
-    coroutineScope {
-      launch(CoroutineName("session-${channel.name}/connection-releaser")) {
-        while (time.value <= 15) {
-          delay(1.seconds)
-          time.incrementAndGet()
-        }
-
-        releaseConnection()
+    scope.launch(CoroutineName("session-${channel.name}/connection-releaser")) {
+      while (time.value <= 15) {
+        delay(1.seconds)
+        time.incrementAndGet()
       }
+
+      close()
     }
   }
 
-  private suspend fun releaseConnection() {
-    if (connection == null) return
-
-    connection?.shutdown()
-    connection = null
-  }
-
   private suspend fun playRegisteredTracks() {
-    queue
-      .openSubscription()
-      .receiveAsFlow()
-      .onEach { song ->
-        runCatching {
-          player.playTrack(song)
-        }
-      }
-      .collect()
+    queueFlow.onEach { song ->
+      player.playTrack(song)
+    }.collect()
   }
 }
