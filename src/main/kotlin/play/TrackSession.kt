@@ -23,19 +23,14 @@ import dev.kord.voice.VoiceConnection
 import kotlin.Result.Companion.failure
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
-import kotlin.time.Duration.Companion.seconds
-import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ObsoleteCoroutinesApi
 import kotlinx.coroutines.channels.BroadcastChannel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.onFailure
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
@@ -115,18 +110,18 @@ class TrackSession(val channel: VoiceChannel, val scope: CoroutineScope) {
 
     logger.info("connection set up")
 
-    val time = atomic(0)
-
-    queueFlow.map { time.value = 0 }.launchIn(scope)
-
-    scope.launch(CoroutineName("session-${channel.name}/connection-releaser")) {
-      while (time.value <= 15) {
-        delay(1.seconds)
-        time.incrementAndGet()
-      }
-
-      close()
-    }
+//    val time = atomic(0)
+//
+//    queueFlow.map { time.value = 0 }.launchIn(scope)
+//
+//    scope.launch(CoroutineName("session-${channel.name}/connection-releaser")) {
+//      while (time.value <= 15) {
+//        delay(1.seconds)
+//        time.incrementAndGet()
+//      }
+//
+//      close()
+//    }
   }
 
   private suspend fun playRegisteredTracks() {

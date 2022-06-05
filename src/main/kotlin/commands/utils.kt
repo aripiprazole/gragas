@@ -5,7 +5,6 @@
 
 package gragas.commands
 
-import dev.kord.common.entity.Snowflake
 import dev.kord.core.Kord
 import dev.kord.core.behavior.interaction.response.respond
 import dev.kord.core.event.interaction.GuildChatInputCommandInteractionCreateEvent
@@ -29,8 +28,7 @@ suspend fun Kord.register(command: Command) {
     }
     .launchIn(this)
 
-  createGuildChatInputCommand(
-    guildId = Snowflake(731161106797559841L),
+  createGlobalChatInputCommand(
     name = command.name,
     description = command.description,
     builder = command.settings,
