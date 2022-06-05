@@ -3,7 +3,7 @@
  * public domain. For more information, please refer to <http://unlicense.org/>
  */
 
-@file:OptIn(KordVoice::class, FlowPreview::class, ObsoleteCoroutinesApi::class)
+@file:OptIn(KordVoice::class, ObsoleteCoroutinesApi::class)
 
 package gragas.play
 
@@ -26,15 +26,18 @@ import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.ObsoleteCoroutinesApi
 import kotlinx.coroutines.channels.BroadcastChannel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.onFailure
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
@@ -62,11 +65,8 @@ class TrackSession(
   fun initialize() {
     if (connection != null) return
 
-    launch(CoroutineName("session-${channel.name}/setup")) {
-      setupSession()
-    }
-
     launch(CoroutineName("session-${channel.name}/play-tracks")) {
+      setupSession()
       playRegisteredTracks()
     }
   }
@@ -111,14 +111,26 @@ class TrackSession(
 
     logger.info("connection set up")
 
+    val time = atomic(0)
+
     queue
       .openSubscription()
       .receiveAsFlow()
-      .debounce(10.seconds)
-      .onEach { releaseConnection() }
-      .collect()
+      .map {
+        time.value = 0
+      }
+      .launchIn(this)
 
-    releaseConnection()
+    coroutineScope {
+      launch(CoroutineName("session-${channel.name}/connection-releaser")) {
+        while (time.value <= 15) {
+          delay(1.seconds)
+          time.incrementAndGet()
+        }
+
+        releaseConnection()
+      }
+    }
   }
 
   private suspend fun releaseConnection() {
